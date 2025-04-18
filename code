@@ -1,0 +1,168 @@
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <string>
+
+const int MAX_NODES = 100;
+const int MAX_CONNECTIONS = 10;
+
+struct Node {
+    int id;
+    std::string type;
+    int lineNum;
+    std::string codeLine;
+    int connections[MAX_CONNECTIONS];
+    int connCount;
+
+    Node() {
+        connCount = 0;
+        for (int i = 0; i < MAX_CONNECTIONS; i++) {
+            connections[i] = -1;
+        }
+    }
+};
+
+class Graph {
+public:
+    std::map<int, Node> nodeList;
+
+    void addNode(int id, std::string type, int line, std::string code) {
+        Node n;
+        n.id = id;
+        n.type = type;
+        n.lineNum = line;
+        n.codeLine = code;
+        nodeList[id] = n;
+    }
+
+    void addEdge(int from, int to) {
+        if (nodeList[from].connCount < MAX_CONNECTIONS) {
+            nodeList[from].connections[nodeList[from].connCount] = to;
+            nodeList[from].connCount++;
+        }
+    }
+
+    int getTypes(std::string typesOut[MAX_NODES]) {
+        int count = 0;
+        for (std::map<int, Node>::iterator it = nodeList.begin(); it != nodeList.end(); it++) {
+            typesOut[count++] = it->second.type;
+        }
+        return count;
+    }
+
+    void printGraph() {
+        for (std::map<int, Node>::iterator it = nodeList.begin(); it != nodeList.end(); it++) {
+            Node n = it->second;
+            std::cout << "Node " << n.id << " (" << n.type << ") Line " << n.lineNum << ": " << n.codeLine << std::endl;
+            for (int i = 0; i < n.connCount; i++) {
+                std::cout << "  connects to Node " << n.connections[i] << std::endl;
+            }
+        }
+    }
+};
+
+Graph makeGraphFromCode(std::string filename) {
+    std::ifstream input(filename.c_str());
+    std::string line;
+    Graph g;
+    int id = 0;
+    int prevId = -1;
+    int lineNum = 0;
+
+    while (getline(input, line)) {
+        lineNum++;
+        std::string type = "";
+
+        // Check for basic control structures manually
+        if (line.find("if (") != std::string::npos) {
+            type = "if";
+        } else if (line.find("while (") != std::string::npos) {
+            type = "while";
+        } else if (line.find("for (") != std::string::npos) {
+            type = "for";
+        } else if (line.find("return") != std::string::npos) {
+            type = "return";
+        } else if (line.find("void") != std::string::npos || line.find("int") != std::string::npos || line.find("char") != std::string::npos) {
+            type = "function";
+        } else {
+            continue; // skip lines that don't match any known pattern
+        }
+
+        g.addNode(id, type, lineNum, line);
+        if (prevId != -1) {
+            g.addEdge(prevId, id);
+        }
+        prevId = id;
+        id++;
+    }
+
+    return g;
+}
+
+float checkSimilarity(Graph& g1, Graph& g2) {
+    std::string t1[MAX_NODES];
+    std::string t2[MAX_NODES];
+
+    int size1 = g1.getTypes(t1);
+    int size2 = g2.getTypes(t2);
+
+    if (size1 == 0 || size2 == 0) return 0.0;
+
+    int same = 0;
+    int minSize = size1 < size2 ? size1 : size2;
+
+    for (int i = 0; i < minSize; i++) {
+        if (t1[i] == t2[i]) {
+            same++;
+        }
+    }
+
+    float sim = (float)same / (size1 > size2 ? size1 : size2);
+    return sim;
+}
+
+void showMatchedParts(Graph& g1, Graph& g2) {
+    std::cout << "\n--- Matching Code Parts ---\n";
+
+    for (std::map<int, Node>::iterator it1 = g1.nodeList.begin(); it1 != g1.nodeList.end(); it1++) {
+        Node n1 = it1->second;
+
+        for (std::map<int, Node>::iterator it2 = g2.nodeList.begin(); it2 != g2.nodeList.end(); it2++) {
+            Node n2 = it2->second;
+
+            if (n1.type == n2.type) {
+                std::cout << "File1 Line " << n1.lineNum << ": " << n1.codeLine << std::endl;
+                std::cout << "File2 Line " << n2.lineNum << ": " << n2.codeLine << std::endl;
+                std::cout << "--------------------------\n";
+                break;
+            }
+        }
+    }
+}
+
+int main() {
+    std::string file1 = "file1.txt";
+    std::string file2 = "file2.txt";
+
+
+    Graph g1 = makeGraphFromCode(file1);
+    Graph g2 = makeGraphFromCode(file2);
+
+    
+
+    float simScore = checkSimilarity(g1, g2);
+
+    std::cout << "\nSimilarity Score: " << simScore * 100 << "%\n";
+
+    if (simScore >= 0.8) {
+        std::cout << "⚠ Very similar. Might be copied.\n";
+    } else if (simScore >= 0.5) {
+        std::cout << "🟡 Kinda similar.\n";
+    } else {
+        std::cout << "✅ Not very similar.\n";
+    }
+
+    showMatchedParts(g1, g2);
+
+    return 0;
+}                 .....use this code and create a report as refernce wiill attached---and include that it is better than moss and have studied moss from research gate
